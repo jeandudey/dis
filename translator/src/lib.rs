@@ -1,8 +1,8 @@
 use falcon::error::Result;
-use falcon::translator::{BlockTranslationResult, Translator};
 use falcon::il::ControlFlowGraph;
+use falcon::translator::{BlockTranslationResult, Translator};
 
-use dis_xtensa_lx6::{self, Opcode, Instruction};
+use dis_xtensa_lx6::{self, Instruction, Opcode};
 
 mod semantics;
 
@@ -35,7 +35,11 @@ fn translate_block(bytes: &[u8], address: u64) -> Result<BlockTranslationResult>
         let lookahead = disassemble_bytes.len() >= 3;
         let op: Opcode;
         if lookahead {
-            op = Opcode([disassemble_bytes[0], disassemble_bytes[1], disassemble_bytes[3]]);
+            op = Opcode([
+                disassemble_bytes[0],
+                disassemble_bytes[1],
+                disassemble_bytes[3],
+            ]);
         } else {
             op = Opcode([disassemble_bytes[0], disassemble_bytes[1], 0]);
         }
@@ -52,7 +56,7 @@ fn translate_block(bytes: &[u8], address: u64) -> Result<BlockTranslationResult>
 
         match ins {
             Instruction::ILL => semantics::ill(&mut instruction_graph)?,
-            _ => {},
+            _ => {}
         }
 
         if ins.is_narrow() {

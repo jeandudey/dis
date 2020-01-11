@@ -1,5 +1,5 @@
-use falcon::il::*;
 use falcon::error::*;
+use falcon::il::*;
 
 pub fn ill(control_flow_graph: &mut ControlFlowGraph) -> Result<()> {
     let raise_index = {
@@ -11,7 +11,7 @@ pub fn ill(control_flow_graph: &mut ControlFlowGraph) -> Result<()> {
             Vec::new(),
             None,
             None,
-            vec![0,0,0],
+            vec![0, 0, 0],
         ));
 
         block.index()
