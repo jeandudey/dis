@@ -1,20 +1,16 @@
 [package]
-name = "p8n-xtensa-lx6"
+name = "dis-xtensa-lx6"
 version = "0.0.0"
 authors = ["Jean Pierre Dudey <jeandudey@hotmail.com>"]
 license = "LGPL-2.0-or-later"
 edition = "2018"
 
 [dependencies]
-byteorder = "1"
 log = "0.4"
-p8n-types = "3"
-p8n-rreil-macro = "0"
-smallvec = "0.6"
 
 [dev-dependencies]
 simple_logger = "0.5"
+falcon = "0.4"
 
-[patch.crates-io]
-p8n-types = { git = "https://gitlab.com/p8n/panopticon" }
-p8n-rreil-macro = { git = "https://gitlab.com/p8n/panopticon" }
+[workspace]
+members = ["translator"]

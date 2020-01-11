@@ -1,0 +1,9 @@
+[package]
+name = "dis-xtensa-lx6-translator"
+version = "0.1.0"
+authors = ["Jean Pierre Dudey <jeandudey@hotmail.com>"]
+edition = "2018"
+
+[dependencies]
+falcon = "0.4"
+dis-xtensa-lx6 = { path = "../" }
