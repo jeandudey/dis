@@ -1,8 +1,0 @@
-digraph G {
-graph [fontname = "Courier New", splines="polyline"]
-node [fontname = "Courier New"]
-edge [fontname = "Courier New"]
-
-0 [shape="box", label="[ Block: 0x0 ]\l00 AR[7]:32 = AR[1]:32\l", style="filled", fillcolor="#ffddcc"];
-
-}

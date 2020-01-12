@@ -1,6 +1,3 @@
-/*#[macro_use]
-extern crate log;*/
-
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Id {
@@ -229,6 +226,12 @@ pub struct RRRN {
     pub t: u8,
 }
 
+#[derive(Debug)]
+pub struct RI16 {
+    pub imm16: u16,
+    pub t: u8,
+}
+
 #[derive(Debug, Clone)]
 pub struct Instruction {
     pub id: Id,
@@ -242,7 +245,7 @@ impl Instruction {
 
     pub fn to_bri12(&self) -> BRI12 {
         BRI12 {
-            imm12: ((self.opcode & (0b11111111111111111111 << 12)) >> 12) as u16,
+            imm12: ((self.opcode & (0b111111111111 << 12)) >> 12) as u16,
             s: ((self.opcode & (0b1111 << 8)) >> 8) as u8,
             m: ((self.opcode & (0b11 << 6)) >> 6) as u8,
             n: ((self.opcode & (0b11 << 4)) >> 4) as u8,
@@ -253,6 +256,13 @@ impl Instruction {
         RRRN {
             r: ((self.opcode & (0b1111 << 12)) >> 12) as u8,
             s: ((self.opcode & (0b1111 << 8)) >> 8) as u8,
+            t: ((self.opcode & (0b1111 << 4)) >> 4) as u8,
+        }
+    }
+
+    pub fn to_ri16(&self) -> RI16 {
+        RI16 {
+            imm16: ((self.opcode & (0b1111111111111111 << 8)) >> 8) as u16,
             t: ((self.opcode & (0b1111 << 4)) >> 4) as u8,
         }
     }

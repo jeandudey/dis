@@ -2,35 +2,20 @@ use falcon::error::Result;
 use falcon::il::{ControlFlowGraph, Expression};
 use falcon::translator::{BlockTranslationResult, Translator};
 
-use dis_xtensa_lx6::{self, Id};
+use crate::architecture::Mcu;
 
 mod semantics;
-
-#[derive(Debug)]
-pub struct Mcu {
-    pub nareg: u8,
-}
-
-impl Mcu {
-    pub fn esp32() -> Mcu {
-        Mcu {
-            nareg: 64,
-        }
-    }
-
-    pub fn window_base_size(&self) -> usize {
-        // log2(NAREG / 4)
-        match self.nareg {
-            32 => 3,
-            64 => 4,
-            _ => f64::from(self.nareg / 4).log2() as usize,
-        }
-    }
-}
+mod syntax;
 
 #[derive(Debug)]
 pub struct XtensaLx6 {
     pub mcu: Mcu,
+}
+
+impl XtensaLx6 {
+    pub fn new(mcu: Mcu) -> XtensaLx6 {
+        XtensaLx6 { mcu }
+    }
 }
 
 impl Translator for XtensaLx6 {
@@ -68,14 +53,15 @@ fn translate_block(mcu: &Mcu, bytes: &[u8], address: u64) -> Result<BlockTransla
             op = (disassemble_bytes[0], disassemble_bytes[1], 0);
         }
 
-        let instruction = dis_xtensa_lx6::match_opcode(op).unwrap();
+        let instruction = syntax::match_opcode(op).unwrap();
 
         let mut instruction_graph = ControlFlowGraph::new();
 
         match instruction.id {
-            Id::ILL => semantics::ill(&mut instruction_graph)?,
-            Id::ENTRY => semantics::entry(&mut instruction_graph, &instruction, mcu)?,
-            Id::MOV_N => semantics::mov_n(&mut instruction_graph, &instruction)?,
+            syntax::Id::ILL => semantics::ill(&mut instruction_graph)?,
+            syntax::Id::ENTRY => semantics::entry(&mut instruction_graph, &instruction, mcu)?,
+            syntax::Id::L32R => semantics::l32r(&mut instruction_graph, &instruction, &mcu)?,
+            syntax::Id::MOV_N => semantics::mov_n(&mut instruction_graph, &instruction)?,
             _ => {}
         }
 
@@ -85,7 +71,10 @@ fn translate_block(mcu: &Mcu, bytes: &[u8], address: u64) -> Result<BlockTransla
         offset += instruction.size();
         length += instruction.size();
 
-        break;
+        // XXX: for testing.
+        if offset >= 8 {
+            break;
+        }
     }
 
     Ok(BlockTranslationResult::new(
@@ -94,4 +83,24 @@ fn translate_block(mcu: &Mcu, bytes: &[u8], address: u64) -> Result<BlockTransla
         length,
         successors,
     ))
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use falcon::translator::Translator;
+
+    #[test]
+    fn transalte_main() {
+        const BIN: &'static [u8] = include_bytes!("../../examples/data/main.bin");
+        let translator = XtensaLx6 {
+            mcu: Mcu::esp32(),
+        };
+        let result = translator.translate_block(BIN, 0).unwrap();
+        for instruction in result.instructions() {
+            println!("{}", instruction.1.graph().dot_graph());
+        }
+
+        panic!();
+    }
 }

@@ -1,8 +1,8 @@
-use dis_xtensa_lx6::Instruction;
 use falcon::error::*;
 use falcon::il::*;
 
-use super::Mcu;
+use crate::architecture::Mcu;
+use crate::translator::syntax::Instruction;
 
 pub fn imm12_constant(v: u16) -> Constant {
     Constant::new(u64::from(v), 12)
@@ -305,6 +305,67 @@ pub fn entry(control_flow_graph: &mut ControlFlowGraph, instruction: &Instructio
 
     control_flow_graph.unconditional_edge(raise_index, terminating_index)?;
     control_flow_graph.unconditional_edge(operation_index, terminating_index)?;
+
+    Ok(())
+}
+
+pub fn l32r(control_flow_graph: &mut ControlFlowGraph, instruction: &Instruction, mcu: &Mcu) -> Result<()> {
+    let head_index = {
+        let block = control_flow_graph.new_block()?;
+
+        block.nop();
+
+        block.index()
+    };
+
+    let assign_vaddr_extended_index = {
+        let block = control_flow_graph.new_block()?;
+
+        block.nop();
+
+        block.index()
+    };
+
+    let assign_vaddr_index = {
+        let block = control_flow_graph.new_block()?;
+
+        block.nop();
+
+        block.index()
+    };
+
+    let terminating_index = {
+        let block = control_flow_graph.new_block()?;
+
+        block.index()
+    };
+
+    let extended_l32r = Constant::new(if mcu.extended_l32r { 1 } else { 0 }, 1);
+    let litbase0 = Expression::trun(1, expr_scalar("LITBASE", 21))?;
+    let condition = Expression::and(extended_l32r.into(), litbase0)?;
+
+    control_flow_graph.conditional_edge(
+        head_index,
+        assign_vaddr_extended_index,
+        condition.clone(),
+    )?;
+    control_flow_graph.conditional_edge(
+        head_index,
+        assign_vaddr_index,
+        Expression::cmpeq(condition.clone(), expr_const(0, 1))?,
+    )?;
+
+    control_flow_graph.unconditional_edge(
+        assign_vaddr_extended_index,
+        terminating_index
+    )?;
+    control_flow_graph.unconditional_edge(
+        assign_vaddr_index,
+        terminating_index
+    )?;
+
+    control_flow_graph.set_entry(head_index)?;
+    control_flow_graph.set_exit(terminating_index)?;
 
     Ok(())
 }

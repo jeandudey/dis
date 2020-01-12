@@ -1,9 +1,12 @@
 [package]
-name = "dis-xtensa-lx6-translator"
+name = "falcon-xtensa-lx6"
 version = "0.1.0"
 authors = ["Jean Pierre Dudey <jeandudey@hotmail.com>"]
 edition = "2018"
+license = "MIT/Apache-2.0"
 
 [dependencies]
 falcon = "0.4"
-dis-xtensa-lx6 = { path = "../" }
+# TODO: update on falcon
+goblin = "0.0.23"
+error-chain = "0.12"

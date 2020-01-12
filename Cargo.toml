@@ -1,16 +1,2 @@
-[package]
-name = "dis-xtensa-lx6"
-version = "0.0.0"
-authors = ["Jean Pierre Dudey <jeandudey@hotmail.com>"]
-license = "LGPL-2.0-or-later"
-edition = "2018"
-
-[dependencies]
-log = "0.4"
-
-[dev-dependencies]
-simple_logger = "0.5"
-falcon = "0.4"
-
 [workspace]
-members = ["translator"]
+members = ["falcon-xtensa-lx6"]
