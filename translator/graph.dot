@@ -1,0 +1,19 @@
+digraph G {
+graph [fontname = "Courier New", splines="polyline"]
+node [fontname = "Courier New"]
+edge [fontname = "Courier New"]
+
+0 [shape="box", label="[ Block: 0x0 ]\l00 n:2 = ite((((0x0:2 != 0x0:2) | ((PS.CALLINC:2 != 0x0:2) | (0x0:2 != 0x0:2))) & trun.1((WindowStart:4 >> (WindowBase:4 + 0x1:4)))), 0x1:2, ite(((trun.1(((0x0:2 >> 0x1:2) & 0x1:2)) | (trun.1(((PS.CALLINC:2 >> 0x1:2) & 0x1:2)) | trun.1(((0x0:2 >> 0x1:2) & 0x1:2)))) & trun.1((WindowStart:4 >> (WindowBase:4 + 0x2:4)))), 0x2:2, ite((((0x0:2 == 0x3:2) | ((PS.CALLINC:2 == 0x3:2) | (0x0:2 == 0x3:2))) & trun.1((WindowStart:4 >> (WindowBase:4 + 0x3:4)))), 0x3:2, 0x0:2)))\l", style="filled", fillcolor="#ffddcc"];
+1 [shape="box", label="[ Block: 0x1 ]\l00 PS.OWB:4 = WindowBase:4\l01 m:4 = (WindowBase:4 + zext.4(n:2))\l02 PS.EXCM:4 = 0x1:4\l03 EPC[1]:32 = PC:32\l04 nextPC:32 = ite(trun.1((WindowStart:4 >> (m:4 + 0x1:4))), WindowOverflow4:32, ite(trun.1((WindowStart:4 >> (m:4 + 0x2:4))), WindowOverflow8:32, WindowOverflow12:32))\l", style="filled", fillcolor="#ffddcc"];
+2 [shape="box", label="[ Block: 0x2 ]\l00 nop\l", style="filled", fillcolor="#ffddcc"];
+3 [shape="box", label="[ Block: 0x3 ]\l00 intrinsic 000000 IllegalInstruction\l", style="filled", fillcolor="#ffddcc"];
+4 [shape="box", label="[ Block: 0x4 ]\l", style="filled", fillcolor="#ffddcc"];
+5 [shape="box", label="[ Block: 0x5 ]\l00 AR[1]:32 = (AR[1]:32 - (zext.32(0x4:12) << 0x3:32))\l01 WindowBase:4 = (WindowBase:4 + zext.4(PS.CALLINC:2))\l", style="filled", fillcolor="#ffddcc"];
+0 -> 1 [label="((CWOE:2 == 0x1:2) & (n:2 != 0x0:2))"];
+0 -> 2 [label=""];
+1 -> 2 [label=""];
+2 -> 3 [label="((0x3:4 <u 0x1:4) | ((PS.WOE:1 == 0x0:1) | (PS.EXCM:4 == 0x1:4)))"];
+2 -> 5 [label="(((0x3:4 <u 0x1:4) | ((PS.WOE:1 == 0x0:1) | (PS.EXCM:4 == 0x1:4))) == 0x0:1)"];
+3 -> 4 [label=""];
+5 -> 4 [label=""];
+}
