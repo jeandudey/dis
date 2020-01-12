@@ -95,6 +95,9 @@ pub enum Id {
 }
 
 impl Id {
+    pub fn size(&self) -> usize {
+        if self.is_narrow() { 2 } else { 3 }
+    }
     #[rustfmt::skip]
     pub fn mnemonic(&self) -> &'static str {
         match *self {
@@ -195,30 +198,62 @@ impl Id {
     }
 }
 
-macro_rules! full {
-    ($opcode:expr, $next_byte:expr) => {
-        match $next_byte {
-            Some(b) => (u32::from(b) << 16) | $opcode,
-            None => return Err("expected one more byte"),
+macro_rules! decode {
+    ($func:ident, $opcode:expr) => {
+        {
+            Ok(Instruction {
+                id: $func($opcode)?,
+                opcode: $opcode,
+            })
         }
     }
 }
 
-pub fn match_opcode(bytes: (u8, u8, Option<u8>)) -> Result<Id, &'static str> {
-    let opcode = (u32::from(bytes.1) << 8) | u32::from(bytes.0);
+pub struct BRI12 {
+    pub imm12: u16,
+    pub s: u8,
+    pub m: u8,
+    pub n: u8,
+}
+
+#[derive(Debug, Clone)]
+pub struct Instruction {
+    pub id: Id,
+    pub opcode: u32,
+}
+
+impl Instruction {
+    pub fn size(&self) -> usize {
+        self.id.size()
+    }
+
+    pub fn to_bri12(&self) -> BRI12 {
+        BRI12 {
+            imm12: ((self.opcode & (0b11111111111111111111 << 12)) >> 12) as u16,
+            s: ((self.opcode & (0b1111 << 8)) >> 8) as u8,
+            m: ((self.opcode & (0b11 << 6)) >> 6) as u8,
+            n: ((self.opcode & (0b11 << 4)) >> 4) as u8,
+        }
+    }
+}
+
+pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, &'static str> {
+    let opcode = (u32::from(bytes.2) << 16) |
+                 (u32::from(bytes.1) << 8) |
+                 (u32::from(bytes.0) << 0);
 
     println!("opcode = {:b}", opcode);
 
     let op0 = opcode & 0b1111;
     match op0 {
-        0b0000 => qrst(full!(opcode, bytes.2)),
-        0b0001 => Ok(Id::L32R), 
-        0b0010 => lsai(full!(opcode, bytes.2)),
+        0b0000 => decode!(qrst, opcode),
+        0b0001 => Ok(Instruction { id: Id::L32R, opcode, }), 
+        0b0010 => decode!(lsai, opcode),
         0b0011 => { unimplemented!(); }
 
         0b0100 => { unimplemented!(); }
         0b0101 => { unimplemented!(); }
-        0b0110 => si(full!(opcode, bytes.2)),
+        0b0110 => decode!(si, opcode),
         0b0111 => { unimplemented!(); }
 
         0b1000 => { unimplemented!(); }
