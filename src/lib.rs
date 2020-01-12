@@ -90,6 +90,8 @@ pub enum Id {
 
     ENTRY,
 
+    MOV_N,
+
     RESERVED,
     RESERVED_N,
 }
@@ -187,12 +189,15 @@ impl Id {
 
             Id::ENTRY   => "entry",
 
+            Id::MOV_N => "mov.n",
+
             Id::RESERVED | Id::RESERVED_N => "reserved",
         }
     }
 
     pub fn is_narrow(&self) -> bool {
         match *self {
+            Id::MOV_N => true,
             _ => false,
         }
     }
@@ -209,11 +214,19 @@ macro_rules! decode {
     }
 }
 
+#[derive(Debug)]
 pub struct BRI12 {
     pub imm12: u16,
     pub s: u8,
     pub m: u8,
     pub n: u8,
+}
+
+#[derive(Debug)]
+pub struct RRRN {
+    pub r: u8,
+    pub s: u8,
+    pub t: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -233,6 +246,14 @@ impl Instruction {
             s: ((self.opcode & (0b1111 << 8)) >> 8) as u8,
             m: ((self.opcode & (0b11 << 6)) >> 6) as u8,
             n: ((self.opcode & (0b11 << 4)) >> 4) as u8,
+        }
+    }
+
+    pub fn to_rrrn(&self) -> RRRN {
+        RRRN {
+            r: ((self.opcode & (0b1111 << 12)) >> 12) as u8,
+            s: ((self.opcode & (0b1111 << 8)) >> 8) as u8,
+            t: ((self.opcode & (0b1111 << 4)) >> 4) as u8,
         }
     }
 }
@@ -262,7 +283,7 @@ pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, &'static str> {
         0b1011 => { unimplemented!(); }
 
         0b1100 => { unimplemented!(); }
-        0b1101 => { unimplemented!(); }
+        0b1101 => decode!(st3, opcode),
         0b1110 => { unimplemented!(); }
         0b1111 => { unimplemented!(); }
 
@@ -281,6 +302,16 @@ fn si(opcode: u32) -> Result<Id, &'static str> {
         0b01 => { unimplemented!(); },
         0b10 => { unimplemented!(); },
         0b11 => { bi1(opcode) },
+        _ => unreachable!(),
+    }
+}
+
+fn st3(opcode: u32) -> Result<Id, &'static str> {
+    let r = (opcode & (0b1111 << 12)) >> 12;
+
+    match r {
+        0b0000 => { Ok(Id::MOV_N) },
+        0b0001..=0b1111 => { unimplemented!(); },
         _ => unreachable!(),
     }
 }
@@ -304,6 +335,6 @@ pub mod tests {
     #[test]
     fn test_app_main() {
         const BIN: &'static [u8] = include_bytes!("../examples/data/main.bin");
-        panic!("{:?}", match_opcode((BIN[0], BIN[1], Some(BIN[2]))).unwrap());
+        panic!("{:?}", match_opcode((BIN[0], BIN[1], BIN[2])).unwrap());
     }
 }

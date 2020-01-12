@@ -75,6 +75,7 @@ fn translate_block(mcu: &Mcu, bytes: &[u8], address: u64) -> Result<BlockTransla
         match instruction.id {
             Id::ILL => semantics::ill(&mut instruction_graph)?,
             Id::ENTRY => semantics::entry(&mut instruction_graph, &instruction, mcu)?,
+            Id::MOV_N => semantics::mov_n(&mut instruction_graph, &instruction)?,
             _ => {}
         }
 

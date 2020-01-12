@@ -309,6 +309,25 @@ pub fn entry(control_flow_graph: &mut ControlFlowGraph, instruction: &Instructio
     Ok(())
 }
 
+pub fn mov_n(control_flow_graph: &mut ControlFlowGraph, instruction: &Instruction) -> Result<()> {
+    let head_index = {
+        let block = control_flow_graph.new_block()?;
+
+        let rrrn = instruction.to_rrrn();
+
+        let at = ar_register(rrrn.t);
+        let r#as = ar_register(rrrn.s);
+        block.assign(at, r#as.into());
+
+        block.index()
+    };
+
+    control_flow_graph.set_entry(head_index)?;
+    control_flow_graph.set_exit(head_index)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
@@ -322,15 +341,15 @@ pub mod tests {
 
     #[test]
     fn dot_graph() {
-        let op = (0x36, 0x41, 0x00);
+        let op = (0x7d, 0x01, 0x00);
         let instruction = dis_xtensa_lx6::match_opcode(op).unwrap();
-        assert_eq!(instruction.id, dis_xtensa_lx6::Id::ENTRY);
+        assert_eq!(instruction.id, dis_xtensa_lx6::Id::MOV_N);
 
         let mut instruction_graph = ControlFlowGraph::new();
 
-        let mcu = Mcu::esp32();
+        //let mcu = Mcu::esp32();
 
-        if let Err(e) = entry(&mut instruction_graph, &instruction, &mcu) {
+        if let Err(e) = mov_n(&mut instruction_graph, &instruction) {
             println!("{:?}", e);
             panic!();
         }
