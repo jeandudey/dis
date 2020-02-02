@@ -1,9 +1,16 @@
 use std::{error, fmt};
 
 macro_rules! mask {
-    ($v:expr, $pat:expr, $shift:expr) => {
-        ($v & ($pat << $shift)) >> $shift
+    ($v:expr, $bits:expr, $pos:expr) => {
+        (((1 << $bits) - 1) & ($v >> $pos));
     };
+}
+
+#[test]
+fn test_mask() {
+    let opcode = 0b0011_1000_0110_0000_0100_0000;
+    let op1 = mask!(opcode, 4, 16);
+    assert_eq!(op1, 0b1000);
 }
 
 macro_rules! constraint {
@@ -164,6 +171,7 @@ pub enum Id {
     MOVT,
     RUR,
     WUR,
+    EXTUI,
 
     L32R,
 
@@ -321,6 +329,7 @@ impl Id {
             MOVT    => "movt",
             RUR     => "rur",
             WUR     => "wur",
+            EXTUI   => "extui",
 
             L32R    => "l32r",
 
@@ -405,25 +414,25 @@ impl Instruction {
 
     pub fn to_bri12(&self) -> BRI12 {
         BRI12 {
-            imm12: mask!(self.opcode, 0b1111_1111_1111, 12) as u16,
-            s: mask!(self.opcode, 0b1111, 8) as u8,
-            m: mask!(self.opcode, 0b11, 6) as u8,
-            n: mask!(self.opcode, 0b11, 4) as u8,
+            imm12: mask!(self.opcode, 12, 12) as u16,
+            s: mask!(self.opcode, 4, 8) as u8,
+            m: mask!(self.opcode, 2, 6) as u8,
+            n: mask!(self.opcode, 2, 4) as u8,
         }
     }
 
     pub fn to_rrrn(&self) -> RRRN {
         RRRN {
-            r: mask!(self.opcode, 0b1111, 12) as u8,
-            s: mask!(self.opcode, 0b1111, 8) as u8,
-            t: mask!(self.opcode, 0b1111, 4) as u8,
+            r: mask!(self.opcode, 4, 12) as u8,
+            s: mask!(self.opcode, 4, 8) as u8,
+            t: mask!(self.opcode, 4, 4) as u8,
         }
     }
 
     pub fn to_ri16(&self) -> RI16 {
         RI16 {
-            imm16: mask!(self.opcode, 0b1111_1111_1111_1111, 8) as u16,
-            t: mask!(self.opcode, 0b1111, 4) as u8,
+            imm16: mask!(self.opcode, 16, 8) as u16,
+            t: mask!(self.opcode, 4, 4) as u8,
         }
     }
 }
@@ -433,7 +442,7 @@ pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, Error> {
 
     println!("opcode = {:b}", opcode);
 
-    let op0 = mask!(opcode, 0b1111, 0);
+    let op0 = mask!(opcode, 4, 0);
     match op0 {
         0b0000 => decode!(qrst, opcode),
         0b0001 => Ok(Instruction {
@@ -472,23 +481,27 @@ pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, Error> {
 }
 
 fn qrst(opcode: u32) -> Result<Id, Error> {
-    let op1 = mask!(opcode, 0b1111, 16);
+    let op1 = mask!(opcode, 4, 16);
 
     match op1 {
         0b0000 => rst0(opcode),
         0b0001 => rst1(opcode),
         0b0010 => rst2(opcode),
         0b0011 => rst3(opcode),
-        0b0100 | 0b0101 => extui(opcode),
+        0b0100 | 0b0101 => Ok(Id::EXTUI),
         0b0110 => cust0(opcode),
         0b0111 => cust1(opcode),
+        0b1000 => lscx(opcode),
+        0b1001 => lsc4(opcode),
+        0b1010 => fp0(opcode),
+        0b1011 => fp1(opcode),
         0b1100..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
 fn rst0(opcode: u32) -> Result<Id, Error> {
-    let op2 = mask!(opcode, 0b1111, 20);
+    let op2 = mask!(opcode, 4, 20);
 
     match op2 {
         0b0000 => st0(opcode),
@@ -512,7 +525,7 @@ fn rst0(opcode: u32) -> Result<Id, Error> {
 }
 
 fn st0(opcode: u32) -> Result<Id, Error> {
-    let r = mask!(opcode, 0b1111, 12);
+    let r = mask!(opcode, 4, 12);
 
     match r {
         0b0000 => smn0(opcode),
@@ -533,7 +546,7 @@ fn st0(opcode: u32) -> Result<Id, Error> {
 }
 
 fn smn0(opcode: u32) -> Result<Id, Error> {
-    let m = mask!(opcode, 0b11, 6);
+    let m = mask!(opcode, 2, 6);
 
     match m {
         0b00 => Ok(Id::ILL),
@@ -545,7 +558,7 @@ fn smn0(opcode: u32) -> Result<Id, Error> {
 }
 
 fn jr(opcode: u32) -> Result<Id, Error> {
-    let n = mask!(opcode, 0b11, 4);
+    let n = mask!(opcode, 2, 4);
 
     match n {
         0b00 => Ok(Id::RET),
@@ -557,7 +570,7 @@ fn jr(opcode: u32) -> Result<Id, Error> {
 }
 
 fn callx(opcode: u32) -> Result<Id, Error> {
-    let n = mask!(opcode, 0b11, 4);
+    let n = mask!(opcode, 2, 4);
 
     match n {
         0b00 => Ok(Id::CALLX0),
@@ -569,10 +582,10 @@ fn callx(opcode: u32) -> Result<Id, Error> {
 }
 
 fn sync(opcode: u32) -> Result<Id, Error> {
-    let s = mask!(opcode, 0b1111, 8);
+    let s = mask!(opcode, 4, 8);
     constraint!(s, 0);
 
-    let t = mask!(opcode, 0b1111, 4);
+    let t = mask!(opcode, 4, 4);
 
     match t {
         0b0000 => Ok(Id::ISYNC),
@@ -590,13 +603,13 @@ fn sync(opcode: u32) -> Result<Id, Error> {
 }
 
 fn rfei(opcode: u32) -> Result<Id, Error> {
-    let t = mask!(opcode, 0b1111, 4);
+    let t = mask!(opcode, 4, 4);
 
     match t {
         0b0000 => rfet(opcode),
         0b0001 => Ok(Id::RFI),
         0b0010 => {
-            let s = mask!(opcode, 0b1111, 8);
+            let s = mask!(opcode, 4, 8);
             constraint!(s, 0);
             Ok(Id::RFME)
         }
@@ -606,7 +619,7 @@ fn rfei(opcode: u32) -> Result<Id, Error> {
 }
 
 fn rfet(opcode: u32) -> Result<Id, Error> {
-    let s = mask!(opcode, 0b1111, 8);
+    let s = mask!(opcode, 4, 8);
 
     match s {
         0b0000 => Ok(Id::RFE),
@@ -621,9 +634,9 @@ fn rfet(opcode: u32) -> Result<Id, Error> {
 }
 
 fn st1(opcode: u32) -> Result<Id, Error> {
-    let r = mask!(opcode, 0b1111, 12);
-    let s = mask!(opcode, 0b1111, 8);
-    let t = mask!(opcode, 0b1111, 4);
+    let r = mask!(opcode, 4, 12);
+    let s = mask!(opcode, 4, 8);
+    let t = mask!(opcode, 4, 4);
 
     match r {
         0b0000 => {
@@ -661,8 +674,8 @@ fn st1(opcode: u32) -> Result<Id, Error> {
 }
 
 fn tlb(opcode: u32) -> Result<Id, Error> {
-    let r = mask!(opcode, 0b1111, 12);
-    let t = mask!(opcode, 0b1111, 4);
+    let r = mask!(opcode, 4, 12);
+    let t = mask!(opcode, 4, 4);
 
     match r {
         0b0000..=0b0010 => Err(Error::Reserved),
@@ -688,7 +701,7 @@ fn tlb(opcode: u32) -> Result<Id, Error> {
 }
 
 fn rt0(opcode: u32) -> Result<Id, Error> {
-    let s = mask!(opcode, 0b1111, 8);
+    let s = mask!(opcode, 4, 8);
 
     match s {
         0b0000 => Ok(Id::NEG),
@@ -699,9 +712,9 @@ fn rt0(opcode: u32) -> Result<Id, Error> {
 }
 
 fn rst1(opcode: u32) -> Result<Id, Error> {
-    let op2 = mask!(opcode, 0b1111, 20);
-    let s = mask!(opcode, 0b1111, 8);
-    let t = mask!(opcode, 0b1111, 4);
+    let op2 = mask!(opcode, 4, 20);
+    let s = mask!(opcode, 4, 8);
+    let t = mask!(opcode, 4, 4);
 
     match op2 {
         0b0000 | 0b0001 => Ok(Id::SLLI),
@@ -732,7 +745,7 @@ fn rst1(opcode: u32) -> Result<Id, Error> {
 }
 
 fn accer(opcode: u32) -> Result<Id, Error> {
-    let r = mask!(opcode, 0b1111, 12);
+    let r = mask!(opcode, 4, 12);
 
     match r {
         0b0000 => Ok(Id::RER),
@@ -744,7 +757,7 @@ fn accer(opcode: u32) -> Result<Id, Error> {
 }
 
 fn imp(opcode: u32) -> Result<Id, Error> {
-    let r = mask!(opcode, 0b1111, 12);
+    let r = mask!(opcode, 4, 12);
 
     match r {
         0b0000 => Ok(Id::LICT),
@@ -762,9 +775,9 @@ fn imp(opcode: u32) -> Result<Id, Error> {
 }
 
 fn rfdx(opcode: u32) -> Result<Id, Error> {
-    let s = mask!(opcode, 0b1111, 8);
+    let s = mask!(opcode, 4, 8);
 
-    let t = mask!(opcode, 0b1111, 4);
+    let t = mask!(opcode, 4, 4);
 
     match t {
         0b0000 => {
@@ -781,7 +794,7 @@ fn rfdx(opcode: u32) -> Result<Id, Error> {
 }
 
 fn rst2(opcode: u32) -> Result<Id, Error> {
-    let op2 = mask!(opcode, 0b1111, 20);
+    let op2 = mask!(opcode, 4, 20);
 
     match op2 {
         0b0000 => Ok(Id::ANDB),
@@ -803,7 +816,7 @@ fn rst2(opcode: u32) -> Result<Id, Error> {
 }
 
 fn rst3(opcode: u32) -> Result<Id, Error> {
-    let op2 = mask!(opcode, 0b1111, 20);
+    let op2 = mask!(opcode, 4, 20);
 
     match op2 {
         0b0000 => Ok(Id::RSR),
@@ -826,13 +839,22 @@ fn rst3(opcode: u32) -> Result<Id, Error> {
     }
 }
 
-fn extui(_: u32) -> Result<Id, Error> {
-    unimplemented!();
-}
 fn cust0(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
 fn cust1(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn lscx(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn lsc4(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn fp0(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn fp1(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
 fn lsai(_: u32) -> Result<Id, Error> {
@@ -849,7 +871,7 @@ fn calln(_: u32) -> Result<Id, Error> {
 }
 
 fn si(opcode: u32) -> Result<Id, Error> {
-    let n = mask!(opcode, 0b11, 4);
+    let n = mask!(opcode, 2, 4);
 
     match n {
         0b00 => Ok(Id::J),
@@ -861,7 +883,7 @@ fn si(opcode: u32) -> Result<Id, Error> {
 }
 
 fn bi0(opcode: u32) -> Result<Id, Error> {
-    let m = mask!(opcode, 0b11, 6);
+    let m = mask!(opcode, 2, 6);
 
     match m {
         0b00 => Ok(Id::BEQI),
@@ -873,7 +895,7 @@ fn bi0(opcode: u32) -> Result<Id, Error> {
 }
 
 fn bi1(opcode: u32) -> Result<Id, Error> {
-    let m = mask!(opcode, 0b11, 6);
+    let m = mask!(opcode, 2, 6);
 
     match m {
         0b00 => Ok(Id::ENTRY),
@@ -885,7 +907,7 @@ fn bi1(opcode: u32) -> Result<Id, Error> {
 }
 
 fn b1(opcode: u32) -> Result<Id, Error> {
-    let r = mask!(opcode, 0b11, 12);
+    let r = mask!(opcode, 2, 12);
 
     match r {
         0b0000 => Ok(Id::BF),
@@ -907,7 +929,7 @@ fn st2(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
 fn st3(opcode: u32) -> Result<Id, Error> {
-    let r = mask!(opcode, 0b1111, 12);
+    let r = mask!(opcode, 4, 12);
 
     match r {
         0b0000 => Ok(Id::MOV_N),
@@ -918,7 +940,7 @@ fn st3(opcode: u32) -> Result<Id, Error> {
 }
 
 fn st3_n(opcode: u32) -> Result<Id, Error> {
-    let t = mask!(opcode, 0b1111, 4);
+    let t = mask!(opcode, 4, 4);
 
     match t {
         0b0000 => Ok(Id::RET_N),
