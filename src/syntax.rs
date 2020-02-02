@@ -148,6 +148,22 @@ pub enum Id {
     QUOS,
     REMU,
     REMS,
+    RSR,
+    WSR,
+    SEXT,
+    CLAMPS,
+    MIN,
+    MAX,
+    MINU,
+    MAXU,
+    MOVEQZ,
+    MOVNEZ,
+    MOVLTZ,
+    MOVGEZ,
+    MOVF,
+    MOVT,
+    RUR,
+    WUR,
 
     L32R,
 
@@ -289,6 +305,22 @@ impl Id {
             QUOS    => "quos",
             REMU    => "remu",
             REMS    => "rems",
+            RSR     => "rsr",
+            WSR     => "wsr",
+            SEXT    => "sext",
+            CLAMPS  => "clamps",
+            MIN     => "min",
+            MAX     => "max",
+            MINU    => "minu",
+            MAXU    => "maxu",
+            MOVEQZ  => "moveqz",
+            MOVNEZ  => "movneqz",
+            MOVLTZ  => "movltz",
+            MOVGEZ  => "movgez",
+            MOVF    => "movf",
+            MOVT    => "movt",
+            RUR     => "rur",
+            WUR     => "wur",
 
             L32R    => "l32r",
 
@@ -770,9 +802,30 @@ fn rst2(opcode: u32) -> Result<Id, Error> {
     }
 }
 
-fn rst3(_: u32) -> Result<Id, Error> {
-    unimplemented!();
+fn rst3(opcode: u32) -> Result<Id, Error> {
+    let op2 = mask!(opcode, 0b1111, 20);
+
+    match op2 {
+        0b0000 => Ok(Id::RSR),
+        0b0001 => Ok(Id::WSR),
+        0b0010 => Ok(Id::SEXT),
+        0b0011 => Ok(Id::CLAMPS),
+        0b0100 => Ok(Id::MIN),
+        0b0101 => Ok(Id::MAX),
+        0b0110 => Ok(Id::MINU),
+        0b0111 => Ok(Id::MAXU),
+        0b1000 => Ok(Id::MOVEQZ),
+        0b1001 => Ok(Id::MOVNEZ),
+        0b1010 => Ok(Id::MOVLTZ),
+        0b1011 => Ok(Id::MOVGEZ),
+        0b1100 => Ok(Id::MOVF),
+        0b1101 => Ok(Id::MOVT),
+        0b1110 => Ok(Id::RUR),
+        0b1111 => Ok(Id::WUR),
+        _ => unreachable!(),
+    }
 }
+
 fn extui(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
