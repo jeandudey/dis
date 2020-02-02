@@ -1,3 +1,5 @@
+use std::{error, fmt};
+
 macro_rules! mask {
     ($v:expr, $pat:expr, $shift:expr) => {
         ($v & ($pat << $shift)) >> $shift
@@ -7,15 +9,40 @@ macro_rules! mask {
 macro_rules! constraint {
     ($val:expr, $exp:expr) => {
         if ($val != $exp) {
-            return Err(concat!(
-                "constraint ",
-                stringify!($val),
-                " = ",
-                stringify!($exp),
-                " is not satisfied"
-            ));
+            return Err(Error::ConstraintNotSatisfied {
+                field: stringify!($val),
+                value: $val,
+                expected: $exp,
+            });
         }
     };
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum Error {
+    Reserved,
+    ConstraintNotSatisfied {
+        field: &'static str,
+        value: u32,
+        expected: u32,
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Reserved => write!(f, "reserved instruction"),
+            Error::ConstraintNotSatisfied { field, value, expected } => {
+                write!(f, "constraint {} = {} not satisfied, got {}",
+                       field,
+                       expected,
+                       value)
+            }
+        }
+    }
+}
+
+impl error::Error for Error {
 }
 
 #[allow(non_camel_case_types)]
@@ -337,7 +364,7 @@ impl Instruction {
     }
 }
 
-pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, &'static str> {
+pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, Error> {
     let opcode = (u32::from(bytes.2) << 16) | (u32::from(bytes.1) << 8) | u32::from(bytes.0);
 
     println!("opcode = {:b}", opcode);
@@ -374,13 +401,13 @@ pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, &'static str> {
 
         0b1100 => decode!(st2, opcode),
         0b1101 => decode!(st3, opcode),
-        0b1110 | 0b1111 => Err("reserved instruction"),
+        0b1110 | 0b1111 => Err(Error::Reserved),
 
         _ => unreachable!(),
     }
 }
 
-fn qrst(opcode: u32) -> Result<Id, &'static str> {
+fn qrst(opcode: u32) -> Result<Id, Error> {
     let op1 = mask!(opcode, 0b1111, 16);
 
     match op1 {
@@ -391,12 +418,12 @@ fn qrst(opcode: u32) -> Result<Id, &'static str> {
         0b0100 | 0b0101 => extui(opcode),
         0b0110 => cust0(opcode),
         0b0111 => cust1(opcode),
-        0b1100..=0b1111 => Err("reserved instruction"),
+        0b1100..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn rst0(opcode: u32) -> Result<Id, &'static str> {
+fn rst0(opcode: u32) -> Result<Id, Error> {
     let op2 = mask!(opcode, 0b1111, 20);
 
     match op2 {
@@ -407,7 +434,7 @@ fn rst0(opcode: u32) -> Result<Id, &'static str> {
         0b0100 => st1(opcode),
         0b0101 => tlb(opcode),
         0b0110 => rt0(opcode),
-        0b0111 => Err("reserved instruction"),
+        0b0111 => Err(Error::Reserved),
         0b1000 => Ok(Id::ADD),
         0b1001 => Ok(Id::ADDX2),
         0b1010 => Ok(Id::ADDX4),
@@ -420,7 +447,7 @@ fn rst0(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn st0(opcode: u32) -> Result<Id, &'static str> {
+fn st0(opcode: u32) -> Result<Id, Error> {
     let r = mask!(opcode, 0b1111, 12);
 
     match r {
@@ -436,36 +463,36 @@ fn st0(opcode: u32) -> Result<Id, &'static str> {
         0b1001 => Ok(Id::ALL4),
         0b1010 => Ok(Id::ANY8),
         0b1011 => Ok(Id::ALL8),
-        0b1100..=0b1111 => Err("reserved instruction"),
+        0b1100..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn smn0(opcode: u32) -> Result<Id, &'static str> {
+fn smn0(opcode: u32) -> Result<Id, Error> {
     let m = mask!(opcode, 0b11, 6);
 
     match m {
         0b00 => Ok(Id::ILL),
-        0b01 => Err("reserved instruction"),
+        0b01 => Err(Error::Reserved),
         0b10 => jr(opcode),
         0b11 => callx(opcode),
         _ => unreachable!(),
     }
 }
 
-fn jr(opcode: u32) -> Result<Id, &'static str> {
+fn jr(opcode: u32) -> Result<Id, Error> {
     let n = mask!(opcode, 0b11, 4);
 
     match n {
         0b00 => Ok(Id::RET),
         0b01 => Ok(Id::RETW),
         0b10 => Ok(Id::JX),
-        0b11 => Err("reserved instruction"),
+        0b11 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn callx(opcode: u32) -> Result<Id, &'static str> {
+fn callx(opcode: u32) -> Result<Id, Error> {
     let n = mask!(opcode, 0b11, 4);
 
     match n {
@@ -477,7 +504,7 @@ fn callx(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn sync(opcode: u32) -> Result<Id, &'static str> {
+fn sync(opcode: u32) -> Result<Id, Error> {
     let s = mask!(opcode, 0b1111, 8);
     constraint!(s, 0);
 
@@ -488,17 +515,17 @@ fn sync(opcode: u32) -> Result<Id, &'static str> {
         0b0001 => Ok(Id::RSYNC),
         0b0010 => Ok(Id::ESYNC),
         0b0011 => Ok(Id::DSYNC),
-        0b0100..=0b0111 => Err("reserved instruction"),
+        0b0100..=0b0111 => Err(Error::Reserved),
         0b1000 => Ok(Id::EXCW),
-        0b1001..=0b1011 => Err("reserved instruction"),
+        0b1001..=0b1011 => Err(Error::Reserved),
         0b1100 => Ok(Id::MEMW),
         0b1101 => Ok(Id::EXTW),
-        0b1110..=0b1111 => Err("reserved instruction"),
+        0b1110..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn rfei(opcode: u32) -> Result<Id, &'static str> {
+fn rfei(opcode: u32) -> Result<Id, Error> {
     let t = mask!(opcode, 0b1111, 4);
 
     match t {
@@ -509,27 +536,27 @@ fn rfei(opcode: u32) -> Result<Id, &'static str> {
             constraint!(s, 0);
             Ok(Id::RFME)
         }
-        0b0011..=0b1111 => Err("reserved instruction"),
+        0b0011..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn rfet(opcode: u32) -> Result<Id, &'static str> {
+fn rfet(opcode: u32) -> Result<Id, Error> {
     let s = mask!(opcode, 0b1111, 8);
 
     match s {
         0b0000 => Ok(Id::RFE),
         0b0001 => Ok(Id::RFUE),
         0b0010 => Ok(Id::RFDE),
-        0b0011 => Err("reserved instruction"),
+        0b0011 => Err(Error::Reserved),
         0b0100 => Ok(Id::RFWO),
         0b0101 => Ok(Id::RFWU),
-        0b0110..=0b1111 => Err("reserved instruction"),
+        0b0110..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn st1(opcode: u32) -> Result<Id, &'static str> {
+fn st1(opcode: u32) -> Result<Id, Error> {
     let r = mask!(opcode, 0b1111, 12);
     let s = mask!(opcode, 0b1111, 8);
     let t = mask!(opcode, 0b1111, 4);
@@ -555,26 +582,26 @@ fn st1(opcode: u32) -> Result<Id, &'static str> {
             constraint!(t, 0);
             Ok(Id::SSAI)
         }
-        0b0101 => Err("reserved instruction"),
+        0b0101 => Err(Error::Reserved),
         0b0110 => Ok(Id::RER),
         0b0111 => Ok(Id::WER),
         0b1000 => {
             constraint!(s, 0);
             Ok(Id::ROTW)
         }
-        0b1001..=0b1101 => Err("reserved instruction"),
+        0b1001..=0b1101 => Err(Error::Reserved),
         0b1110 => Ok(Id::NSA),
         0b1111 => Ok(Id::NSAU),
         _ => unreachable!(),
     }
 }
 
-fn tlb(opcode: u32) -> Result<Id, &'static str> {
+fn tlb(opcode: u32) -> Result<Id, Error> {
     let r = mask!(opcode, 0b1111, 12);
     let t = mask!(opcode, 0b1111, 4);
 
     match r {
-        0b0000..=0b0010 => Err("reserved instruction"),
+        0b0000..=0b0010 => Err(Error::Reserved),
         0b0011 => Ok(Id::RITLB0),
         0b0100 => {
             constraint!(t, 0);
@@ -583,7 +610,7 @@ fn tlb(opcode: u32) -> Result<Id, &'static str> {
         0b0101 => Ok(Id::PITLB),
         0b0110 => Ok(Id::WITLB),
         0b0111 => Ok(Id::RITLB1),
-        0b1000..=0b1010 => Err("reserved instruction"),
+        0b1000..=0b1010 => Err(Error::Reserved),
         0b1011 => Ok(Id::RDTLB0),
         0b1100 => {
             constraint!(t, 0);
@@ -596,49 +623,49 @@ fn tlb(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn rt0(opcode: u32) -> Result<Id, &'static str> {
+fn rt0(opcode: u32) -> Result<Id, Error> {
     let s = mask!(opcode, 0b1111, 8);
 
     match s {
         0b0000 => Ok(Id::NEG),
         0b0001 => Ok(Id::ABS),
-        0b0010..=0b1111 => Err("reserved instruction"),
+        0b0010..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn rst1(_: u32) -> Result<Id, &'static str> {
+fn rst1(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn rst2(_: u32) -> Result<Id, &'static str> {
+fn rst2(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn rst3(_: u32) -> Result<Id, &'static str> {
+fn rst3(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn extui(_: u32) -> Result<Id, &'static str> {
+fn extui(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn cust0(_: u32) -> Result<Id, &'static str> {
+fn cust0(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn cust1(_: u32) -> Result<Id, &'static str> {
+fn cust1(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn lsai(_: u32) -> Result<Id, &'static str> {
+fn lsai(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn lsci(_: u32) -> Result<Id, &'static str> {
+fn lsci(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn mac16(_: u32) -> Result<Id, &'static str> {
+fn mac16(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn calln(_: u32) -> Result<Id, &'static str> {
+fn calln(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
 
-fn si(opcode: u32) -> Result<Id, &'static str> {
+fn si(opcode: u32) -> Result<Id, Error> {
     let n = mask!(opcode, 0b11, 4);
 
     match n {
@@ -650,7 +677,7 @@ fn si(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn bi0(opcode: u32) -> Result<Id, &'static str> {
+fn bi0(opcode: u32) -> Result<Id, Error> {
     let m = mask!(opcode, 0b11, 6);
 
     match m {
@@ -662,7 +689,7 @@ fn bi0(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn bi1(opcode: u32) -> Result<Id, &'static str> {
+fn bi1(opcode: u32) -> Result<Id, Error> {
     let m = mask!(opcode, 0b11, 6);
 
     match m {
@@ -674,40 +701,40 @@ fn bi1(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn b1(opcode: u32) -> Result<Id, &'static str> {
+fn b1(opcode: u32) -> Result<Id, Error> {
     let r = mask!(opcode, 0b11, 12);
 
     match r {
         0b0000 => Ok(Id::BF),
         0b0001 => Ok(Id::BT),
-        0b0010..=0b0111 => Err("reserved instruction"),
+        0b0010..=0b0111 => Err(Error::Reserved),
         0b1000 => Ok(Id::LOOP),
         0b1001 => Ok(Id::LOOPNEZ),
         0b1010 => Ok(Id::LOOPGTZ),
-        0b1011..=0b1111 => Err("reserved instruction"),
+        0b1011..=0b1111 => Err(Error::Reserved),
         _ => unreachable!(),
     }
 }
 
-fn b(_: u32) -> Result<Id, &'static str> {
+fn b(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
 
-fn st2(_: u32) -> Result<Id, &'static str> {
+fn st2(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn st3(opcode: u32) -> Result<Id, &'static str> {
+fn st3(opcode: u32) -> Result<Id, Error> {
     let r = mask!(opcode, 0b1111, 12);
 
     match r {
         0b0000 => Ok(Id::MOV_N),
-        0b0001..=0b1110 => Err("reserved instruction"),
+        0b0001..=0b1110 => Err(Error::Reserved),
         0b1111 => st3_n(opcode), /* TODO: check for s=0 */
         _ => unreachable!(),
     }
 }
 
-fn st3_n(opcode: u32) -> Result<Id, &'static str> {
+fn st3_n(opcode: u32) -> Result<Id, Error> {
     let t = mask!(opcode, 0b1111, 4);
 
     match t {
@@ -715,6 +742,6 @@ fn st3_n(opcode: u32) -> Result<Id, &'static str> {
         0b0001 => Ok(Id::RETW_N),
         0b0010 => Ok(Id::BREAK_N),
         0b0011 => Ok(Id::NOP_N),
-        _ => Err("reserved instruction"),
+        _ => Err(Error::Reserved),
     }
 }
