@@ -1,3 +1,5 @@
 //! # Falcon Xtensa LX6 instruction decoder
 
-pub mod syntax;
+mod syntax;
+
+pub use syntax::{Id, Instruction, match_opcode};
