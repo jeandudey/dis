@@ -1,2 +1,7 @@
-[workspace]
-members = ["falcon-xtensa-lx6"]
+[package]
+name = "falcon-xtensa-lx6"
+version = "0.1.0"
+authors = ["Jean Pierre Dudey <jeandudey@hotmail.com>"]
+edition = "2018"
+
+[dependencies]
