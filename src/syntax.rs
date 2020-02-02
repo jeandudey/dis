@@ -534,8 +534,37 @@ fn st1(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn tlb(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn rt0(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn tlb(opcode: u32) -> Result<Id, &'static str> {
+    let r = mask!(opcode, 0b1111, 12);
+    let t = mask!(opcode, 0b1111, 4);
+
+    match r {
+        0b0000..=0b0010 => Err("reserved instruction"),
+        0b0011 => Ok(Id::RITLB0),
+        0b0100 => { constraint!(t, 0); Ok(Id::IITLB) },
+        0b0101 => Ok(Id::PITLB),
+        0b0110 => Ok(Id::WITLB),
+        0b0111 => Ok(Id::RITLB1),
+        0b1000..=0b1010 => Err("reserved instruction"),
+        0b1011 => Ok(Id::RDTLB0),
+        0b1100 => { constraint!(t, 0); Ok(Id::IDTLB) },
+        0b1101 => Ok(Id::PDTLB),
+        0b1110 => Ok(Id::WDTLB),
+        0b1111 => Ok(Id::RDTLB1),
+        _ => unreachable!(),
+    }
+}
+
+fn rt0(opcode: u32) -> Result<Id, &'static str> {
+    let s = mask!(opcode, 0b1111, 8);
+
+    match s {
+        0b0000 => Ok(Id::NEG),
+        0b0001 => Ok(Id::ABS),
+        0b0010..=0b1111 => Err("reserved instruction"),
+        _ => unreachable!(),
+    }
+}
 
 fn rst1(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
 fn rst2(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
