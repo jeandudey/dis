@@ -4,6 +4,18 @@ macro_rules! mask {
     }
 }
 
+macro_rules! constraint {
+    ($val:expr, $exp:expr) => {
+        if ($val != $exp) {
+            return Err(concat!("constraint ",
+                               stringify!($val),
+                               " = ",
+                               stringify!($exp),
+                               " is not satisfied"));
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Id {
@@ -449,10 +461,8 @@ fn callx(opcode: u32) -> Result<Id, &'static str> {
 }
 
 fn sync(opcode: u32) -> Result<Id, &'static str> {
-    let s = mask!(opcode, 0b1111, 12);
-    if s != 0 {
-        return Err("constraint s = 0 not satisfied");
-    }
+    let s = mask!(opcode, 0b1111, 8);
+    constraint!(s, 0);
 
     let t = mask!(opcode, 0b1111, 4);
 
@@ -478,12 +488,9 @@ fn rfei(opcode: u32) -> Result<Id, &'static str> {
         0b0000 => rfet(opcode),
         0b0001 => Ok(Id::RFI),
         0b0010 => {
-            let s = mask!(opcode, 0b1111, 12);
-            if s != 0 {
-                Err("constraint s = 0 not satisfied")
-            } else {
-                Ok(Id::RFME)
-            }
+            let s = mask!(opcode, 0b1111, 8);
+            constraint!(s, 0);
+            Ok(Id::RFME)
         }
         0b0011..=0b1111 => Err("reserved instruction"),
         _ => unreachable!(),
@@ -491,7 +498,7 @@ fn rfei(opcode: u32) -> Result<Id, &'static str> {
 }
 
 fn rfet(opcode: u32) -> Result<Id, &'static str> {
-    let s = mask!(opcode, 0b1111, 12);
+    let s = mask!(opcode, 0b1111, 8);
 
     match s {
         0b0000 => Ok(Id::RFE),
@@ -505,7 +512,28 @@ fn rfet(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn st1(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn st1(opcode: u32) -> Result<Id, &'static str> {
+    let r = mask!(opcode, 0b1111, 12);
+    let s = mask!(opcode, 0b1111, 8);
+    let t = mask!(opcode, 0b1111, 4);
+
+    match r {
+        0b0000 => { constraint!(t, 0); Ok(Id::SSR) }
+        0b0001 => { constraint!(t, 0); Ok(Id::SSL) }
+        0b0010 => { constraint!(t, 0); Ok(Id::SSA8L) }
+        0b0011 => { constraint!(t, 0); Ok(Id::SSA8B) }
+        0b0100 => { constraint!(t, 0); Ok(Id::SSAI) }
+        0b0101 => Err("reserved instruction"),
+        0b0110 => Ok(Id::RER),
+        0b0111 => Ok(Id::WER),
+        0b1000 => { constraint!(s, 0); Ok(Id::ROTW) }
+        0b1001..=0b1101 => Err("reserved instruction"),
+        0b1110 => Ok(Id::NSA),
+        0b1111 => Ok(Id::NSAU),
+        _ => unreachable!(),
+    }
+}
+
 fn tlb(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
 fn rt0(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
 
