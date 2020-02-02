@@ -2,4 +2,4 @@
 
 mod syntax;
 
-pub use syntax::{Id, Instruction, match_opcode};
+pub use syntax::{match_opcode, Id, Instruction};

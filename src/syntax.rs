@@ -1,19 +1,21 @@
 macro_rules! mask {
     ($v:expr, $pat:expr, $shift:expr) => {
         ($v & ($pat << $shift)) >> $shift
-    }
+    };
 }
 
 macro_rules! constraint {
     ($val:expr, $exp:expr) => {
         if ($val != $exp) {
-            return Err(concat!("constraint ",
-                               stringify!($val),
-                               " = ",
-                               stringify!($exp),
-                               " is not satisfied"));
+            return Err(concat!(
+                "constraint ",
+                stringify!($val),
+                " = ",
+                stringify!($exp),
+                " is not satisfied"
+            ));
         }
-    }
+    };
 }
 
 #[allow(non_camel_case_types)]
@@ -135,7 +137,11 @@ pub enum Id {
 
 impl Id {
     pub fn size(self) -> usize {
-        if self.is_narrow() { 2 } else { 3 }
+        if self.is_narrow() {
+            2
+        } else {
+            3
+        }
     }
 
     #[rustfmt::skip]
@@ -266,14 +272,12 @@ impl Id {
 }
 
 macro_rules! decode {
-    ($func:ident, $opcode:expr) => {
-        {
-            Ok(Instruction {
-                id: $func($opcode)?,
-                opcode: $opcode,
-            })
-        }
-    }
+    ($func:ident, $opcode:expr) => {{
+        Ok(Instruction {
+            id: $func($opcode)?,
+            opcode: $opcode,
+        })
+    }};
 }
 
 #[derive(Debug)]
@@ -334,26 +338,39 @@ impl Instruction {
 }
 
 pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, &'static str> {
-    let opcode = (u32::from(bytes.2) << 16) |
-                 (u32::from(bytes.1) << 8) |
-                  u32::from(bytes.0);
+    let opcode = (u32::from(bytes.2) << 16) | (u32::from(bytes.1) << 8) | u32::from(bytes.0);
 
     println!("opcode = {:b}", opcode);
 
     let op0 = mask!(opcode, 0b1111, 0);
     match op0 {
         0b0000 => decode!(qrst, opcode),
-        0b0001 => Ok(Instruction { id: Id::L32R, opcode, }),
+        0b0001 => Ok(Instruction {
+            id: Id::L32R,
+            opcode,
+        }),
         0b0010 => decode!(lsai, opcode),
         0b0011 => decode!(lsci, opcode),
         0b0100 => decode!(mac16, opcode),
         0b0101 => decode!(calln, opcode),
         0b0110 => decode!(si, opcode),
         0b0111 => decode!(b, opcode),
-        0b1000 => Ok(Instruction { id: Id::L32R_N, opcode, }),
-        0b1001 => Ok(Instruction { id: Id::S32I_N, opcode }),
-        0b1010 => Ok(Instruction { id: Id::ADD_N, opcode }),
-        0b1011 => Ok(Instruction { id: Id::ADDI_N, opcode }),
+        0b1000 => Ok(Instruction {
+            id: Id::L32R_N,
+            opcode,
+        }),
+        0b1001 => Ok(Instruction {
+            id: Id::S32I_N,
+            opcode,
+        }),
+        0b1010 => Ok(Instruction {
+            id: Id::ADD_N,
+            opcode,
+        }),
+        0b1011 => Ok(Instruction {
+            id: Id::ADDI_N,
+            opcode,
+        }),
 
         0b1100 => decode!(st2, opcode),
         0b1101 => decode!(st3, opcode),
@@ -518,15 +535,33 @@ fn st1(opcode: u32) -> Result<Id, &'static str> {
     let t = mask!(opcode, 0b1111, 4);
 
     match r {
-        0b0000 => { constraint!(t, 0); Ok(Id::SSR) }
-        0b0001 => { constraint!(t, 0); Ok(Id::SSL) }
-        0b0010 => { constraint!(t, 0); Ok(Id::SSA8L) }
-        0b0011 => { constraint!(t, 0); Ok(Id::SSA8B) }
-        0b0100 => { constraint!(t, 0); Ok(Id::SSAI) }
+        0b0000 => {
+            constraint!(t, 0);
+            Ok(Id::SSR)
+        }
+        0b0001 => {
+            constraint!(t, 0);
+            Ok(Id::SSL)
+        }
+        0b0010 => {
+            constraint!(t, 0);
+            Ok(Id::SSA8L)
+        }
+        0b0011 => {
+            constraint!(t, 0);
+            Ok(Id::SSA8B)
+        }
+        0b0100 => {
+            constraint!(t, 0);
+            Ok(Id::SSAI)
+        }
         0b0101 => Err("reserved instruction"),
         0b0110 => Ok(Id::RER),
         0b0111 => Ok(Id::WER),
-        0b1000 => { constraint!(s, 0); Ok(Id::ROTW) }
+        0b1000 => {
+            constraint!(s, 0);
+            Ok(Id::ROTW)
+        }
         0b1001..=0b1101 => Err("reserved instruction"),
         0b1110 => Ok(Id::NSA),
         0b1111 => Ok(Id::NSAU),
@@ -541,13 +576,19 @@ fn tlb(opcode: u32) -> Result<Id, &'static str> {
     match r {
         0b0000..=0b0010 => Err("reserved instruction"),
         0b0011 => Ok(Id::RITLB0),
-        0b0100 => { constraint!(t, 0); Ok(Id::IITLB) },
+        0b0100 => {
+            constraint!(t, 0);
+            Ok(Id::IITLB)
+        }
         0b0101 => Ok(Id::PITLB),
         0b0110 => Ok(Id::WITLB),
         0b0111 => Ok(Id::RITLB1),
         0b1000..=0b1010 => Err("reserved instruction"),
         0b1011 => Ok(Id::RDTLB0),
-        0b1100 => { constraint!(t, 0); Ok(Id::IDTLB) },
+        0b1100 => {
+            constraint!(t, 0);
+            Ok(Id::IDTLB)
+        }
         0b1101 => Ok(Id::PDTLB),
         0b1110 => Ok(Id::WDTLB),
         0b1111 => Ok(Id::RDTLB1),
@@ -566,16 +607,36 @@ fn rt0(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn rst1(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn rst2(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn rst3(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn extui(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn cust0(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn cust1(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn lsai(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn lsci(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn mac16(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
-fn calln(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn rst1(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn rst2(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn rst3(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn extui(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn cust0(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn cust1(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn lsai(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn lsci(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn mac16(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
+fn calln(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
 
 fn si(opcode: u32) -> Result<Id, &'static str> {
     let n = mask!(opcode, 0b11, 4);
@@ -628,16 +689,20 @@ fn b1(opcode: u32) -> Result<Id, &'static str> {
     }
 }
 
-fn b(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn b(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
 
-fn st2(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn st2(_: u32) -> Result<Id, &'static str> {
+    unimplemented!();
+}
 fn st3(opcode: u32) -> Result<Id, &'static str> {
     let r = mask!(opcode, 0b1111, 12);
 
     match r {
         0b0000 => Ok(Id::MOV_N),
         0b0001..=0b1110 => Err("reserved instruction"),
-        0b1111 => st3_n(opcode) /* TODO: check for s=0 */,
+        0b1111 => st3_n(opcode), /* TODO: check for s=0 */
         _ => unreachable!(),
     }
 }
