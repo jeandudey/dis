@@ -106,6 +106,11 @@ pub enum Id {
     BLTUI,
     BGEUI,
 
+    L32R_N,
+    S32I_N,
+    ADD_N,
+    ADDI_N,
+
     MOV_N,
     RET_N,
     RETW_N,
@@ -225,6 +230,11 @@ impl Id {
             BLTUI   => "bltui",
             BGEUI   => "bgeui",
 
+            L32R_N  => "l32r.n",
+            S32I_N  => "s32r.n",
+            ADD_N   => "add.n",
+            ADDI_N  => "addi.n",
+
             MOV_N   => "mov.n",
             RET_N   => "ret.n",
             RETW_N  => "retw.n",
@@ -323,22 +333,19 @@ pub fn match_opcode(bytes: (u8, u8, u8)) -> Result<Instruction, &'static str> {
         0b0000 => decode!(qrst, opcode),
         0b0001 => Ok(Instruction { id: Id::L32R, opcode, }),
         0b0010 => decode!(lsai, opcode),
-        0b0011 => { unimplemented!(); }
-
-        0b0100 => { unimplemented!(); }
-        0b0101 => { unimplemented!(); }
+        0b0011 => decode!(lsci, opcode),
+        0b0100 => decode!(mac16, opcode),
+        0b0101 => decode!(calln, opcode),
         0b0110 => decode!(si, opcode),
-        0b0111 => { unimplemented!(); }
+        0b0111 => decode!(b, opcode),
+        0b1000 => Ok(Instruction { id: Id::L32R_N, opcode, }),
+        0b1001 => Ok(Instruction { id: Id::S32I_N, opcode }),
+        0b1010 => Ok(Instruction { id: Id::ADD_N, opcode }),
+        0b1011 => Ok(Instruction { id: Id::ADDI_N, opcode }),
 
-        0b1000 => { unimplemented!(); }
-        0b1001 => { unimplemented!(); }
-        0b1010 => { unimplemented!(); }
-        0b1011 => { unimplemented!(); }
-
-        0b1100 => { unimplemented!(); }
+        0b1100 => decode!(st2, opcode),
         0b1101 => decode!(st3, opcode),
-        0b1110 => { unimplemented!(); }
-        0b1111 => { unimplemented!(); }
+        0b1110 | 0b1111 => Err("reserved instruction"),
 
         _ => unreachable!(),
     }
@@ -509,6 +516,9 @@ fn extui(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
 fn cust0(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
 fn cust1(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
 fn lsai(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn lsci(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn mac16(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn calln(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
 
 fn si(opcode: u32) -> Result<Id, &'static str> {
     let n = mask!(opcode, 0b11, 4);
@@ -519,29 +529,6 @@ fn si(opcode: u32) -> Result<Id, &'static str> {
         0b10 => bi0(opcode),
         0b11 => bi1(opcode),
         _ => unreachable!(),
-    }
-}
-
-fn st3(opcode: u32) -> Result<Id, &'static str> {
-    let r = mask!(opcode, 0b1111, 12);
-
-    match r {
-        0b0000 => Ok(Id::MOV_N),
-        0b0001..=0b1110 => Err("reserved instruction"),
-        0b1111 => st3_n(opcode) /* TODO: check for s=0 */,
-        _ => unreachable!(),
-    }
-}
-
-fn st3_n(opcode: u32) -> Result<Id, &'static str> {
-    let t = mask!(opcode, 0b1111, 4);
-
-    match t {
-        0b0000 => Ok(Id::RET_N),
-        0b0001 => Ok(Id::RETW_N),
-        0b0010 => Ok(Id::BREAK_N),
-        0b0011 => Ok(Id::NOP_N),
-        _ => Err("reserved instruction"),
     }
 }
 
@@ -581,5 +568,31 @@ fn b1(opcode: u32) -> Result<Id, &'static str> {
         0b1010 => Ok(Id::LOOPGTZ),
         0b1011..=0b1111 => Err("reserved instruction"),
         _ => unreachable!(),
+    }
+}
+
+fn b(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+
+fn st2(_: u32) -> Result<Id, &'static str> { unimplemented!(); }
+fn st3(opcode: u32) -> Result<Id, &'static str> {
+    let r = mask!(opcode, 0b1111, 12);
+
+    match r {
+        0b0000 => Ok(Id::MOV_N),
+        0b0001..=0b1110 => Err("reserved instruction"),
+        0b1111 => st3_n(opcode) /* TODO: check for s=0 */,
+        _ => unreachable!(),
+    }
+}
+
+fn st3_n(opcode: u32) -> Result<Id, &'static str> {
+    let t = mask!(opcode, 0b1111, 4);
+
+    match t {
+        0b0000 => Ok(Id::RET_N),
+        0b0001 => Ok(Id::RETW_N),
+        0b0010 => Ok(Id::BREAK_N),
+        0b0011 => Ok(Id::NOP_N),
+        _ => Err("reserved instruction"),
     }
 }
