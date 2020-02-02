@@ -1,0 +1,27 @@
+[package]
+name = "falcon-xtensa-lx6-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.3"
+
+[dependencies.falcon-xtensa-lx6]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_target_1"
+path = "fuzz_targets/fuzz_target_1.rs"
+
+[[bin]]
+name = "match_opcode"
+path = "fuzz_targets/match_opcode.rs"
