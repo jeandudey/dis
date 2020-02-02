@@ -7,13 +7,16 @@ macro_rules! mask {
 }
 
 macro_rules! constraint {
-    ($val:expr, $exp:expr) => {
-        if ($val != $exp) {
-            return Err(Error::ConstraintNotSatisfied {
-                field: stringify!($val),
-                value: $val,
-                expected: $exp,
-            });
+    ($val:expr, $($exp:expr),+) => {
+        match $val {
+            $($exp => {}),+
+            _ => {
+                return Err(Error::ConstraintNotSatisfied {
+                    field: stringify!($val),
+                    value: $val,
+                    expected: &[$($exp),+],
+                });
+            }
         }
     };
 }
@@ -24,7 +27,7 @@ pub enum Error {
     ConstraintNotSatisfied {
         field: &'static str,
         value: u32,
-        expected: u32,
+        expected: &'static [u32],
     }
 }
 
@@ -33,10 +36,13 @@ impl fmt::Display for Error {
         match *self {
             Error::Reserved => write!(f, "reserved instruction"),
             Error::ConstraintNotSatisfied { field, value, expected } => {
-                write!(f, "constraint {} = {} not satisfied, got {}",
-                       field,
-                       expected,
-                       value)
+                write!(f, "constraint {}", field)?;
+                match expected.len() {
+                    1 => write!(f, " = {}", expected[0])?,
+                    2 => write!(f, " = {},{}", expected[0], expected[1])?,
+                    _ => {},
+                }
+                write!(f, " not satisfied, got {}", value)
             }
         }
     }
@@ -117,6 +123,7 @@ pub enum Id {
     SRLI,
     XSR,
     SRC,
+    SRL,
     SLL,
     SRA,
     MUL16U,
@@ -129,6 +136,18 @@ pub enum Id {
     SDCT,
     RFDO,
     RFDD,
+    ANDB,
+    ANDBC,
+    ORB,
+    ORBC,
+    XORB,
+    MULL,
+    MULUH,
+    MULSH,
+    QUOU,
+    QUOS,
+    REMU,
+    REMS,
 
     L32R,
 
@@ -245,6 +264,7 @@ impl Id {
             SRLI    => "srli",
             XSR     => "xsr",
             SRC     => "src",
+            SRL     => "srl",
             SLL     => "sll",
             SRA     => "sra",
             MUL16U  => "mul16u",
@@ -257,6 +277,18 @@ impl Id {
             SDCT    => "sdct",
             RFDO    => "rfdo",
             RFDD    => "rfdd",
+            ANDB    => "andb",
+            ANDBC   => "andbc",
+            ORB     => "orb",
+            ORBC    => "orbc",
+            XORB    => "xorb",
+            MULL    => "mull",
+            MULUH   => "muluh",
+            MULSH   => "mulsh",
+            QUOU    => "quou",
+            QUOS    => "quos",
+            REMU    => "remu",
+            REMS    => "rems",
 
             L32R    => "l32r",
 
@@ -634,12 +666,110 @@ fn rt0(opcode: u32) -> Result<Id, Error> {
     }
 }
 
-fn rst1(_: u32) -> Result<Id, Error> {
-    unimplemented!();
+fn rst1(opcode: u32) -> Result<Id, Error> {
+    let op2 = mask!(opcode, 0b1111, 20);
+    let s = mask!(opcode, 0b1111, 8);
+    let t = mask!(opcode, 0b1111, 4);
+
+    match op2 {
+        0b0000 | 0b0001 => Ok(Id::SLLI),
+        0b0010 | 0b0011 => Ok(Id::SRAI),
+        0b0100 => Ok(Id::SRLI),
+        0b0101 => Err(Error::Reserved),
+        0b0110 => Ok(Id::XSR),
+        0b0111 => accer(opcode),
+        0b1000 => Ok(Id::SRC),
+        0b1001 => {
+            constraint!(s, 0);
+            Ok(Id::SRL)
+        }
+        0b1010 => {
+            constraint!(t, 0);
+            Ok(Id::SLL)
+        }
+        0b1011 => {
+            constraint!(s, 0);
+            Ok(Id::SRA)
+        }
+        0b1100 => Ok(Id::MUL16U),
+        0b1101 => Ok(Id::MUL16S),
+        0b1110 => Err(Error::Reserved),
+        0b1111 => imp(opcode),
+        _ => unreachable!(),
+    }
 }
-fn rst2(_: u32) -> Result<Id, Error> {
-    unimplemented!();
+
+fn accer(opcode: u32) -> Result<Id, Error> {
+    let r = mask!(opcode, 0b1111, 12);
+
+    match r {
+        0b0000 => Ok(Id::RER),
+        0b0001..=0b0111 => Err(Error::Reserved),
+        0b1000 => Ok(Id::WER),
+        0b1001..=0b1111 => Err(Error::Reserved),
+        _ => unreachable!(),
+    }
 }
+
+fn imp(opcode: u32) -> Result<Id, Error> {
+    let r = mask!(opcode, 0b1111, 12);
+
+    match r {
+        0b0000 => Ok(Id::LICT),
+        0b0001 => Ok(Id::SICT),
+        0b0010 => Ok(Id::LICW),
+        0b0011 => Ok(Id::SICW),
+        0b0100..=0b0111 => Err(Error::Reserved),
+        0b1000 => Ok(Id::LDCT),
+        0b1001 => Ok(Id::SDCT),
+        0b1010..=0b1101 => Err(Error::Reserved),
+        0b1110 => rfdx(opcode),
+        0b1111 => Err(Error::Reserved),
+        _ => unreachable!(),
+    }
+}
+
+fn rfdx(opcode: u32) -> Result<Id, Error> {
+    let s = mask!(opcode, 0b1111, 8);
+
+    let t = mask!(opcode, 0b1111, 4);
+
+    match t {
+        0b0000 => {
+            constraint!(s, 0);
+            Ok(Id::RFDO)
+        },
+        0b0001 => {
+            constraint!(s, 0, 1);
+            Ok(Id::RFDD)
+        },
+        0b0010..=0b1111 => Err(Error::Reserved),
+        _ => unreachable!(),
+    }
+}
+
+fn rst2(opcode: u32) -> Result<Id, Error> {
+    let op2 = mask!(opcode, 0b1111, 20);
+
+    match op2 {
+        0b0000 => Ok(Id::ANDB),
+        0b0001 => Ok(Id::ANDBC),
+        0b0010 => Ok(Id::ORB),
+        0b0011 => Ok(Id::ORBC),
+        0b0100 => Ok(Id::XORB),
+        0b0101..=0b0111 => Err(Error::Reserved),
+        0b1000 => Ok(Id::MULL),
+        0b1001 => Err(Error::Reserved),
+        0b1010 => Ok(Id::MULUH),
+        0b1011 => Ok(Id::MULSH),
+        0b1100 => Ok(Id::QUOU),
+        0b1101 => Ok(Id::QUOS),
+        0b1110 => Ok(Id::REMU),
+        0b1111 => Ok(Id::REMS),
+        _ => unreachable!(),
+    }
+}
+
 fn rst3(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
