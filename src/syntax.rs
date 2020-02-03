@@ -241,6 +241,10 @@ pub enum Id {
     IPFL,
     IHU,
     IIU,
+    LSI,
+    SSI,
+    LSIU, 
+    SSIU,
 
     J,
     BZ,
@@ -466,6 +470,10 @@ impl Id {
             IPFL     => "ipfl",
             IHU      => "ihu",
             IIU      => "iiu",
+            LSI      => "lsi",
+            SSI      => "ssi",
+            LSIU     => "lsiu",
+            SSIU     => "ssiu",
 
             J        => "j",
             BZ       => "bz",
@@ -1142,12 +1150,72 @@ fn ice(opcode: u32) -> Result<Id, Error> {
     }
 }
 
-fn lsci(_: u32) -> Result<Id, Error> {
+fn lsci(opcode: u32) -> Result<Id, Error> {
+    let r = mask!(opcode, 4, 12);
+
+    match r {
+        0b0000 => Ok(Id::LSI),
+        0b0001..=0b0011 => Err(Error::Reserved),
+        0b0100 => Ok(Id::SSI),
+        0b0101..=0b0111 => Err(Error::Reserved),
+        0b1000 => Ok(Id::LSIU), 
+        0b1001..=0b1011 => Err(Error::Reserved),
+        0b1100 => Ok(Id::SSIU),
+        0b1101..=0b1111 => Err(Error::Reserved),
+        _ => unreachable!(),
+    }
+}
+
+fn mac16(opcode: u32) -> Result<Id, Error> {
+    let op2 = mask!(opcode, 4, 20);
+
+    match op2 {
+        0b0000 => macid(opcode),
+        0b0001 => maccd(opcode),
+        0b0010 => macdd(opcode),
+        0b0011 => macad(opcode),
+        0b0100 => macia(opcode),
+        0b0101 => macca(opcode),
+        0b0110 => macda(opcode),
+        0b0111 => macaa(opcode),
+        0b1000 => maci(opcode),
+        0b1001 => macc(opcode),
+        0b1010..=0b1111 => Err(Error::Reserved),
+        _ => unreachable!(),
+    }
+}
+
+fn macid(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
-fn mac16(_: u32) -> Result<Id, Error> {
+fn maccd(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
+fn macdd(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn macad(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn macia(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn macca(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn macda(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn macaa(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn maci(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+fn macc(_: u32) -> Result<Id, Error> {
+    unimplemented!();
+}
+
 fn calln(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
