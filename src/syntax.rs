@@ -208,8 +208,39 @@ pub enum Id {
     MOVGEZ_S,
     MOVF_S,
     MOVT_S,
-
     L32R,
+    L8UI,
+    L16UI,
+    L32UI,
+    S8I,
+    S16I,
+    S32I,
+    L16SI,
+    MOVI,
+    L32AI,
+    ADDI,
+    ADDMI,
+    S32C1I,
+    S32RI,
+    DPFR,
+    DPFW,
+    DPFRO,
+    DPFWO,
+    DHWB,
+    DHWBI,
+    DHI,
+    DII,
+    IPF,
+    IHI,
+    III,
+    DPFL,
+    DHU,
+    DIU,
+    DIWB,
+    DIWBI,
+    IPFL,
+    IHU,
+    IIU,
 
     J,
     BZ,
@@ -402,8 +433,39 @@ impl Id {
             MOVGEZ_S => "movgez.s",
             MOVF_S   => "movf.s",
             MOVT_S   => "movt.s",
-
             L32R     => "l32r",
+            L8UI     => "l8ui",
+            L16UI    => "l16ui",
+            L32UI    => "l32ui",
+            S8I      => "s8i",
+            S16I     => "s16i",
+            S32I     => "s32i",
+            L16SI    => "l16i",
+            MOVI     => "movi",
+            L32AI    => "l32ai",
+            ADDI     => "addi",
+            ADDMI    => "addmi",
+            S32C1I   => "s32c1i",
+            S32RI    => "s32ri",
+            DPFR     => "dpfr",
+            DPFW     => "dpfw",
+            DPFRO    => "dpfro",
+            DPFWO    => "dpfwo",
+            DHWB     => "dhwb",
+            DHWBI    => "dhwbi",
+            DHI      => "dhi",
+            DII      => "dii",
+            IPF      => "ipf",
+            IHI      => "ihi",
+            III      => "iii",
+            DPFL     => "dpfl",
+            DHU      => "dhu",
+            DIU      => "diu",
+            DIWB     => "diwb",
+            DIWBI    => "diwbi",
+            IPFL     => "ipfl",
+            IHU      => "ihu",
+            IIU      => "iiu",
 
             J        => "j",
             BZ       => "bz",
@@ -1006,9 +1068,80 @@ fn fp1(opcode: u32) -> Result<Id, Error> {
     }
 }
 
-fn lsai(_: u32) -> Result<Id, Error> {
-    unimplemented!();
+fn lsai(opcode: u32) -> Result<Id, Error> {
+    let r = mask!(opcode, 4, 12);
+
+    match r {
+        0b0000 => Ok(Id::L8UI),
+        0b0001 => Ok(Id::L16UI),
+        0b0010 => Ok(Id::L32UI),
+        0b0011 => Err(Error::Reserved),
+        0b0100 => Ok(Id::S8I),
+        0b0101 => Ok(Id::S16I),
+        0b0110 => Ok(Id::S32I),
+        0b0111 => cache(opcode),
+        0b1000 => Err(Error::Reserved),
+        0b1001 => Ok(Id::L16SI),
+        0b1010 => Ok(Id::MOVI),
+        0b1011 => Ok(Id::L32AI),
+        0b1100 => Ok(Id::ADDI),
+        0b1101 => Ok(Id::ADDMI),
+        0b1110 => Ok(Id::S32C1I),
+        0b1111 => Ok(Id::S32RI),
+        _ => unreachable!(),
+    }
 }
+
+fn cache(opcode: u32) -> Result<Id, Error> {
+    let t = mask!(opcode, 4, 4);
+
+    match t {
+        0b0000 => Ok(Id::DPFR),
+        0b0001 => Ok(Id::DPFW),
+        0b0010 => Ok(Id::DPFRO),
+        0b0011 => Ok(Id::DPFWO),
+        0b0100 => Ok(Id::DHWB),
+        0b0101 => Ok(Id::DHWBI),
+        0b0110 => Ok(Id::DHI),
+        0b0111 => Ok(Id::DII),
+        0b1000 => dce(opcode),
+        0b1001..=0b1011 => Err(Error::Reserved),
+        0b1100 => Ok(Id::IPF),
+        0b1101 => ice(opcode),
+        0b1110 => Ok(Id::IHI),
+        0b1111 => Ok(Id::III),
+        _ => unreachable!(),
+    }
+}
+
+fn dce(opcode: u32) -> Result<Id, Error> {
+    let op1 = mask!(opcode, 4, 16);
+
+    match op1 {
+        0b0000 => Ok(Id::DPFL),
+        0b0001 => Err(Error::Reserved),
+        0b0010 => Ok(Id::DHU),
+        0b0011 => Ok(Id::DIU),
+        0b0100 => Ok(Id::DIWB),
+        0b0101 => Ok(Id::DIWBI),
+        0b0110..=0b1111 => Err(Error::Reserved),
+        _ => unreachable!(),
+    }
+}
+
+fn ice(opcode: u32) -> Result<Id, Error> {
+    let op1 = mask!(opcode, 4, 16);
+
+    match op1 {
+        0b0000 => Ok(Id::IPFL),
+        0b0001 => Err(Error::Reserved),
+        0b0010 => Ok(Id::IHU),
+        0b0011 => Ok(Id::IIU),
+        0b0100..=0b1111 => Err(Error::Reserved),
+        _ => unreachable!(),
+    }
+}
+
 fn lsci(_: u32) -> Result<Id, Error> {
     unimplemented!();
 }
