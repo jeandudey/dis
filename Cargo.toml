@@ -8,3 +8,8 @@ homepage = "https://github.co/jeandudey/dis"
 license = "MIT/Apache-2.0"
 
 [dependencies]
+falcon = { version = "0.4", optional = true }
+
+[features]
+default = ["translator"]
+translator = ["falcon"]
