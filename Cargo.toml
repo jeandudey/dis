@@ -3,5 +3,8 @@ name = "falcon-xtensa-lx6"
 version = "0.1.0"
 authors = ["Jean Pierre Dudey <jeandudey@hotmail.com>"]
 edition = "2018"
+description = "Xtensa LX6 Falcon integration"
+homepage = "https://github.co/jeandudey/dis"
+license = "MIT/Apache-2.0"
 
 [dependencies]
